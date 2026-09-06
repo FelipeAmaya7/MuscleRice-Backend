@@ -5,13 +5,16 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 
-// Importar rutas modularizadas
+// Importar rutas y configuración de MongoDB
 import authRoutes from "./routes/authRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
-import db from "./config/db.js";
+import { connectMongoDB } from "./config/mongoDb.js";
 
 // Configurar variables de entorno
 dotenv.config();
+
+// Conectar a MongoDB Atlas
+connectMongoDB();
 
 const app = express();
 app.use(cors());
@@ -26,6 +29,10 @@ if (!fs.existsSync(frontendDir)) {
   frontendDir = path.resolve(__dirname, "../../WebsiteMuscleRice");
 }
 
+// Rutas de la API (bajo /api)
+app.use("/api", authRoutes);
+app.use("/api", productRoutes);
+
 // Servir la versión compilada (dist) si existe, de lo contrario la carpeta raíz del frontend
 const staticDir = fs.existsSync(path.join(frontendDir, "dist"))
   ? path.join(frontendDir, "dist")
@@ -34,23 +41,9 @@ const staticDir = fs.existsSync(path.join(frontendDir, "dist"))
 console.log(`📂 Serviendo archivos estáticos desde: ${staticDir}`);
 app.use(express.static(staticDir));
 
-// Rutas de la aplicación (en raíz para compatibilidad con el frontend)
-app.use("/", authRoutes);
-app.use("/", productRoutes);
-
-// Servir el index.html en la ruta inicial
-app.get("/", (req, res) => {
+// Servir el index.html para cualquier otra ruta (manejo de rutas en el cliente - SPA)
+app.get("/{*splat}", (req, res) => {
   res.sendFile(path.join(staticDir, "index.html"));
-});
-
-// Ruta de prueba rápida de base de datos
-app.get("/prueba", async (req, res) => {
-  try {
-    const [results] = await db.query("SELECT * FROM clientes LIMIT 5");
-    res.json(results);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
 });
 
 const PORT = process.env.PORT || 3000;
@@ -58,4 +51,5 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🔥 Servidor corriendo en http://localhost:${PORT}`);
 });
+
 export default app;
