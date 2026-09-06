@@ -37,6 +37,9 @@ Thumbs.db
 credentials/
 secrets/
 
+# Build
+dist/
+
 # Backup
 *.bak
 *.backup

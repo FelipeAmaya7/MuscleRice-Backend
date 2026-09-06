@@ -5,6 +5,7 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
+    "db:migrate": "node migrate.js",
     "dev": "tsx src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
@@ -18,7 +19,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^5.1.0",
-    "mysql2": "^3.15.3"
+    "mongoose": "^9.8.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

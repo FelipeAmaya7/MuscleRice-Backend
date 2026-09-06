@@ -1,43 +1,25 @@
 import { Request, Response } from 'express';
-import db from '../config/db.js';
-import { RowDataPacket } from 'mysql2';
+import { Product } from '../models/Product.js';
 
 export const getProductos = async (req: Request, res: Response) => {
   try {
-    const [results] = await db.query<RowDataPacket[]>("SELECT * FROM productos");
-    res.json(results);
-  } catch (err: any) {
-    console.error("Error al obtener productos:", err);
-    res.status(500).json({ error: err.message });
-  }
-};
+    const productos = await Product.find({});
+    // Mapeamos _id a id para mantener compatibilidad transparente con el frontend
+    const productosFormateados = productos.map(p => ({
+      id: p._id,
+      nombre: p.nombre,
+      name: p.nombre,
+      descripcion: p.descripcion,
+      description: p.descripcion,
+      precio: p.precio,
+      price: p.precio,
+      imagen: p.imagen,
+      image: p.imagen
+    }));
 
-export const getPedidos = async (req: Request, res: Response) => {
-  try {
-    const [results] = await db.query<RowDataPacket[]>("SELECT * FROM pedidos");
-    res.json(results);
+    res.json(productosFormateados);
   } catch (err: any) {
-    console.error("Error al obtener pedidos:", err);
-    res.status(500).json({ error: err.message });
-  }
-};
-
-export const getDetallePedido = async (req: Request, res: Response) => {
-  try {
-    const [results] = await db.query<RowDataPacket[]>("SELECT * FROM detalle_pedido");
-    res.json(results);
-  } catch (err: any) {
-    console.error("Error al obtener detalle_pedido:", err);
-    res.status(500).json({ error: err.message });
-  }
-};
-
-export const getPagos = async (req: Request, res: Response) => {
-  try {
-    const [results] = await db.query<RowDataPacket[]>("SELECT * FROM pagos");
-    res.json(results);
-  } catch (err: any) {
-    console.error("Error al obtener pagos:", err);
+    console.error("Error al obtener productos de MongoDB:", err);
     res.status(500).json({ error: err.message });
   }
 };

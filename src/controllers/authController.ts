@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import db from '../config/db.js';
-import { ResultSetHeader, RowDataPacket } from 'mysql2';
+import { User } from '../models/User.js';
 
 export const registro = async (req: Request, res: Response) => {
   const { nombre, email, password } = req.body;
@@ -11,28 +10,34 @@ export const registro = async (req: Request, res: Response) => {
   }
 
   try {
+    // Verificar si el usuario ya existe en MongoDB
+    const usuarioExistente = await User.findOne({ email });
+    if (usuarioExistente) {
+      return res.status(409).json({ mensaje: "Este correo ya está registrado" });
+    }
+
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const query = `
-      INSERT INTO clientes (nombre, email, password)
-      VALUES (?, ?, ?)
-    `;
-
-    const [result] = await db.query<ResultSetHeader>(query, [nombre, email, hashedPassword]);
+    // Crear el nuevo usuario en MongoDB
+    const nuevoUsuario = await User.create({
+      nombre,
+      email,
+      password: hashedPassword
+    });
 
     return res.status(201).json({
       mensaje: "Usuario registrado correctamente",
-      id: result.insertId
+      id: nuevoUsuario._id,
+      usuario: {
+        id: nuevoUsuario._id,
+        nombre: nuevoUsuario.nombre,
+        email: nuevoUsuario.email
+      }
     });
 
   } catch (err: any) {
-    console.error("Error en registro:", err);
-    if (err.code === "ER_DUP_ENTRY") {
-      return res.status(409).json({
-        mensaje: "Este correo ya está registrado"
-      });
-    }
+    console.error("Error en registro MongoDB:", err);
     return res.status(500).json({ error: err.message });
   }
 };
@@ -45,60 +50,31 @@ export const login = async (req: Request, res: Response) => {
   }
 
   try {
-    const query = `
-      SELECT id, nombre, email, password
-      FROM clientes
-      WHERE email = ?
-    `;
+    // Buscar usuario por email en MongoDB
+    const usuario = await User.findOne({ email });
 
-    const [results] = await db.query<RowDataPacket[]>(query, [email]);
-
-    if (results.length === 0) {
-      return res.status(401).json({
-        mensaje: "Correo o contraseña incorrectos"
-      });
+    if (!usuario) {
+      return res.status(401).json({ mensaje: "Correo o contraseña incorrectos" });
     }
 
-    const usuario = results[0];
-
-    // Verificar contraseña usando bcrypt, con fallback a texto plano para usuarios legacy
-    let passwordCorrect = false;
-    const isBcryptHash = usuario.password.startsWith('$2a$') || usuario.password.startsWith('$2b$');
-
-    if (isBcryptHash) {
-      passwordCorrect = await bcrypt.compare(password, usuario.password);
-    } else {
-      passwordCorrect = (password === usuario.password);
-
-      if (passwordCorrect) {
-        try {
-          const salt = await bcrypt.genSalt(10);
-          const hashedPassword = await bcrypt.hash(password, salt);
-          await db.query("UPDATE clientes SET password = ? WHERE id = ?", [hashedPassword, usuario.id]);
-          console.log(`🔑 Contraseña de usuario legacy (ID: ${usuario.id}) migrada a bcrypt con éxito.`);
-        } catch (updateErr) {
-          console.error("Error al actualizar la contraseña legacy:", updateErr);
-        }
-      }
-    }
+    // Verificar contraseña usando bcrypt
+    const passwordCorrect = await bcrypt.compare(password, usuario.password);
 
     if (!passwordCorrect) {
-      return res.status(401).json({
-        mensaje: "Correo o contraseña incorrectos"
-      });
+      return res.status(401).json({ mensaje: "Correo o contraseña incorrectos" });
     }
 
     return res.json({
       mensaje: "Login exitoso",
       usuario: {
-        id: usuario.id,
+        id: usuario._id,
         nombre: usuario.nombre,
         email: usuario.email
       }
     });
 
   } catch (err: any) {
-    console.error("Error en login:", err);
+    console.error("Error en login MongoDB:", err);
     return res.status(500).json({ error: err.message });
   }
 };
@@ -107,21 +83,17 @@ export const getUsuario = async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
-    const query = `
-      SELECT id, nombre, email
-      FROM clientes
-      WHERE id = ?
-    `;
+    const usuario = await User.findById(id).select('-password');
 
-    const [results] = await db.query<RowDataPacket[]>(query, [id]);
-
-    if (results.length === 0) {
-      return res.status(404).json({
-        mensaje: "Usuario no encontrado"
-      });
+    if (!usuario) {
+      return res.status(404).json({ mensaje: "Usuario no encontrado" });
     }
 
-    return res.json(results[0]);
+    return res.json({
+      id: usuario._id,
+      nombre: usuario.nombre,
+      email: usuario.email
+    });
 
   } catch (err: any) {
     console.error("Error al obtener usuario:", err);
