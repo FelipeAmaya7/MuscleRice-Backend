@@ -3,7 +3,7 @@
 API REST de **MuscleRice**, tienda online de suplementos deportivos en Colombia.
 Construida con **Node.js + Express + TypeScript** y conectada a **MongoDB Atlas** mediante **Mongoose**.
 
-> 🔗 Frontend: [MuscleRice](https://github.com/FelipeAmaya7/MuscleRice)
+> 🔗 Frontend: [MuscleRice-Frontend](https://github.com/FelipeAmaya7/MuscleRice-Frontend)
 
 ---
 
