@@ -1,141 +1,222 @@
-# 🏋️ ServiceMuscleRice — Backend API
+# 🏋️ MuscleRice — Backend (API)
 
-REST API del proyecto **MuscleRice**, una tienda de suplementos deportivos. Construida con **Node.js**, **Express** y **TypeScript**, conectada a una base de datos **MySQL**.
+API REST de **MuscleRice**, tienda online de suplementos deportivos en Colombia.
+Construida con **Node.js + Express + TypeScript** y conectada a **MongoDB Atlas** mediante **Mongoose**.
 
----
-
-## 🧱 Stack Tecnológico
-
-| Tecnología | Versión | Uso |
-|---|---|---|
-| Node.js | ≥ 18 | Runtime |
-| TypeScript | ^6.0 | Lenguaje |
-| Express | ^5.1 | Framework HTTP |
-| MySQL2 | ^3.15 | Base de datos |
-| bcryptjs | ^3.0 | Hash de contraseñas |
-| dotenv | ^17 | Variables de entorno |
-| tsx | ^4.22 | Compilación en dev |
+> 🔗 Frontend: [MuscleRice-Frontend](https://github.com/FelipeAmaya7/MuscleRice-Frontend)
 
 ---
 
-## 📁 Estructura del Proyecto
+## 📑 Índice
+1. [¿Qué hace este backend?](#-qué-hace-este-backend)
+2. [Stack tecnológico](#-stack-tecnológico)
+3. [Estructura del proyecto](#-estructura-del-proyecto)
+4. [Cómo funciona una petición](#-cómo-funciona-una-petición)
+5. [Modelos de datos](#-modelos-de-datos)
+6. [Endpoints](#-endpoints)
+7. [Instalación y ejecución](#-instalación-y-ejecución)
+8. [Estado actual y pendientes](#-estado-actual-y-pendientes)
+
+---
+
+## 🎯 ¿Qué hace este backend?
+
+Es la "cocina" de la tienda: el navegador **nunca** habla directo con la base de datos, siempre pasa por aquí.
+
+- Entrega el catálogo de productos desde MongoDB
+- Registra usuarios y valida su inicio de sesión (contraseñas encriptadas con bcrypt)
+- En producción, también sirve el frontend compilado (`WebsiteMuscleRice/dist`) como SPA
+
+---
+
+## 🧱 Stack tecnológico
+
+| Tecnología | Uso |
+|---|---|
+| **Node.js** (≥ 18) | Entorno para ejecutar JavaScript en el servidor |
+| **Express 5** | Framework HTTP: rutas, middlewares, respuestas JSON |
+| **TypeScript** | Tipado estático; se compila a `dist/` |
+| **MongoDB Atlas** | Base de datos en la nube (documentos JSON) |
+| **Mongoose** | Define esquemas/modelos y consulta MongoDB |
+| **bcryptjs** | Hash de contraseñas |
+| **cors** | Permite que el frontend (otro puerto/dominio) llame a la API |
+| **dotenv** | Carga variables secretas desde `.env` |
+| **tsx** | Ejecuta TypeScript directo en desarrollo |
+
+---
+
+## 📁 Estructura del proyecto
 
 ```
 ServiceMuscleRice/
 ├── src/
-│   ├── config/          # Configuración de DB y servidor
-│   ├── controllers/     # Lógica de negocio
-│   │   ├── authController.ts
-│   │   └── productController.ts
-│   ├── routes/          # Definición de endpoints
-│   │   ├── authRoutes.ts
-│   │   └── productRoutes.ts
-│   └── server.ts        # Entry point de la aplicación
-├── middlewares/         # Middlewares personalizados
-├── dist/                # Build compilado (generado)
-├── schema.sql           # Esquema de la base de datos
-├── .env.example         # Variables de entorno de referencia
-├── package.json
-└── tsconfig.json
+│   ├── server.ts               # Punto de entrada: crea Express, conecta Mongo, registra rutas
+│   ├── config/
+│   │   └── mongoDb.ts          # Conexión a MongoDB Atlas (usa MONGO_URI)
+│   ├── models/                 # "Moldes" de los datos (esquemas de Mongoose)
+│   │   ├── Product.ts
+│   │   ├── User.ts
+│   │   └── Order.ts            # Definido, aún sin rutas
+│   ├── routes/                 # Qué URL ejecuta qué función
+│   │   ├── productRoutes.ts
+│   │   └── authRoutes.ts
+│   └── controllers/            # Lógica de cada endpoint
+│       ├── productController.ts
+│       └── authController.ts
+├── seedMongo.js                # Carga los productos iniciales en MongoDB
+├── .env.example                # Plantilla de variables de entorno
+├── tsconfig.json
+└── package.json
+```
+
+**Patrón usado:** `routes → controllers → models`
+- **Route:** "cuando llegue `GET /api/productos`, llama a `getProductos`"
+- **Controller:** "busca los productos, dales formato y responde"
+- **Model:** "así es un producto y así se consulta en MongoDB"
+
+---
+
+## 🔄 Cómo funciona una petición
+
+```
+Frontend: fetch('/api/productos')
+      │
+      ▼
+server.ts            → app.use('/api', productRoutes)
+      │
+      ▼
+productRoutes.ts     → router.get('/productos', getProductos)
+      │
+      ▼
+productController.ts → await Product.find({})
+      │
+      ▼
+MongoDB Atlas        → devuelve los documentos
+      │
+      ▼
+productController.ts → res.json([...])  ──▶ vuelve al frontend
 ```
 
 ---
 
-## 🗄️ Base de Datos
+## 🗄️ Modelos de datos
 
-El proyecto usa **MySQL**. El esquema se encuentra en [`schema.sql`](./schema.sql) e incluye las siguientes tablas:
+### Product
+| Campo | Tipo | Requerido |
+|---|---|---|
+| `nombre` | String | ✅ |
+| `descripcion` | String | ✅ |
+| `precio` | Number (COP) | ✅ |
+| `imagen` | String (ruta, ej. `img/whey protein.jpg`) | ✅ |
+| `createdAt` / `updatedAt` | Date | automático |
 
-| Tabla | Descripción |
+### User
+| Campo | Tipo | Notas |
+|---|---|---|
+| `nombre` | String | requerido |
+| `email` | String | requerido, **único** |
+| `password` | String | se guarda **hasheado** con bcrypt, nunca en texto plano |
+
+### Order *(aún sin endpoints)*
+| Campo | Tipo |
 |---|---|
-| `clientes` | Usuarios registrados en la tienda |
-| `productos` | Catálogo de suplementos |
-| `pedidos` | Órdenes realizadas por los clientes |
-| `detalle_pedido` | Ítems individuales dentro de cada pedido |
-| `pagos` | Registro de pagos por pedido |
-
-El archivo `schema.sql` también incluye **semilla de productos** iniciales.
+| `clienteEmail` | String |
+| `total` | Number |
+| `estado` | `pendiente` · `pagado` · `enviado` |
+| `productos[]` | `{ productoNombre, cantidad, precioUnitario }` |
 
 ---
 
-## ⚙️ Configuración del Entorno
+## 📡 Endpoints
 
-1. Copia el archivo de ejemplo y completa tus credenciales:
+Todas las rutas empiezan por `/api`.
 
-```bash
-cp .env.example .env
+### Productos
+| Método | Ruta | Descripción | Respuesta |
+|---|---|---|---|
+| `GET` | `/api/productos` | Lista todos los productos | `200` · arreglo de productos |
+
+### Autenticación
+| Método | Ruta | Body | Respuestas |
+|---|---|---|---|
+| `POST` | `/api/registro` | `{ nombre, email, password }` | `201` creado · `400` faltan campos · `409` correo ya existe |
+| `POST` | `/api/login` | `{ email, password }` | `200` login ok · `400` faltan campos · `401` credenciales incorrectas |
+| `GET` | `/api/usuario/:id` | — | `200` usuario (sin password) · `404` no existe |
+
+**Ejemplo — login:**
+```http
+POST /api/login
+Content-Type: application/json
+
+{ "email": "cliente@correo.com", "password": "secreta123" }
 ```
-
-2. Edita `.env` con tus valores:
-
-```env
-PORT=3000
-
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=tu_contraseña_aqui
-DB_NAME=musclericedb
+```json
+{
+  "mensaje": "Login exitoso",
+  "usuario": { "id": "66f...", "nombre": "Cliente", "email": "cliente@correo.com" }
+}
 ```
 
 ---
 
-## 🚀 Instalación y Ejecución
+## 🚀 Instalación y ejecución
 
-### Prerrequisitos
-
-- Node.js 18+
-- MySQL corriendo localmente
+### Requisitos
+- Node.js 18 o superior
+- Un cluster de **MongoDB Atlas** (gratis) y su cadena de conexión
 
 ### Pasos
-
 ```bash
 # 1. Instalar dependencias
 npm install
 
-# 2. Crear la base de datos
-mysql -u root -p < schema.sql
-
-# 3. Configurar variables de entorno
+# 2. Crear el archivo de variables de entorno
 cp .env.example .env
-# (editar .env con tus credenciales)
+#    y completar MONGO_URI con tu cadena de Atlas
 
-# 4. Iniciar en modo desarrollo
-npm run dev
+# 3. Modo desarrollo (recarga con tsx)
+npm run dev          # → http://localhost:3000
 ```
 
-El servidor correrá en `http://localhost:3000`
-
-### Build para producción
-
+### Cargar productos iniciales (solo la primera vez)
+`seedMongo.js` importa el modelo compilado, así que primero se compila:
 ```bash
-npm run build    # Compila TypeScript a dist/
-npm start        # Ejecuta el build compilado
+npm run build
+node seedMongo.js    # ⚠️ borra y vuelve a crear la colección de productos
 ```
 
----
+### Producción
+```bash
+npm run build        # compila src/ → dist/
+npm start            # node dist/server.js
+```
+Si existe `../WebsiteMuscleRice/dist`, el servidor también entrega el frontend y redirige cualquier ruta desconocida a `index.html` (necesario para React Router).
 
-## 📡 Endpoints de la API
-
-### Autenticación
-
-| Método | Ruta | Descripción |
+### Variables de entorno
+| Variable | Ejemplo | Descripción |
 |---|---|---|
-| `POST` | `/api/auth/register` | Registro de nuevo cliente |
-| `POST` | `/api/auth/login` | Inicio de sesión |
+| `PORT` | `3000` | Puerto del servidor |
+| `MONGO_URI` | `mongodb+srv://usuario:clave@cluster.mongodb.net/musclerice` | Conexión a MongoDB Atlas |
 
-### Productos
-
-| Método | Ruta | Descripción |
-|---|---|---|
-| `GET` | `/api/products` | Listar todos los productos |
-| `GET` | `/api/products/:id` | Obtener producto por ID |
+> 🔒 El archivo `.env` está en `.gitignore`: **nunca** se sube a GitHub.
 
 ---
 
-## 🛡️ Seguridad
+## 📌 Estado actual y pendientes
 
-- Las contraseñas se almacenan encriptadas con **bcryptjs**
-- Las variables sensibles se manejan via `.env` (nunca se suben al repositorio)
-- CORS habilitado para el frontend
+### ✅ Hecho
+- Migración de MySQL a **MongoDB + Mongoose**
+- Catálogo servido desde la base de datos
+- Registro y login con contraseñas hasheadas
+
+### 🛠️ Pendiente (ver plan del proyecto)
+- [ ] `GET /api/productos/:id` para la ficha de producto
+- [ ] Más campos en `Product`: categoría, marca, stock, precio anterior, registro INVIMA
+- [ ] **JWT** en login/registro + middleware que proteja rutas privadas
+- [ ] Proteger `GET /api/usuario/:id` (hoy es público) → reemplazar por `GET /api/usuario/me`
+- [ ] Endpoints de pedidos: `POST /api/pedidos` (recalculando precios en el servidor) y `GET /api/pedidos/mios`
+- [ ] Limitar CORS al dominio del frontend y no exponer `err.message` en errores 500
+- [ ] Validación de datos de entrada
 
 ---
 
